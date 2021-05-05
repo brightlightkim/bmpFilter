@@ -90,17 +90,15 @@ void printDataAsBits(unsigned char *data, size_t size){
   unsigned int i;
 
   int binary [7] = {0, };
-  unsigned char *dataValue [16];
-  memcpy( dataValue, data, size);
 
   for (i = 0; i < 8; i++){
-    if (dataValue[i] != 0){
-      if ((dataValue[i] % 2) == 1){
+    if (*(data+i) != 0){
+      if ((*(data + i) % 2) == 1){
         binary [i] = 1;
       } else {
         binary [i] = 0;
       }
-      dataValue[i] /= 2;
+      *(data + i) /= 2;
     }
     else {
       binary [i] = 0;

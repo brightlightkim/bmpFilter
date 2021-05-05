@@ -22,16 +22,22 @@
  *
  * returns the input file pointer (FILE*)
  **/
-FILE *parseCommandLine(int argc, char **argv, int *isGrayscale) {
+FILE *parseCommandLine(int argc, char **argv, int *isGrayscale, int *shrink) {
   if (argc > 2) {
     printf("Usage: %s [-g]\n", argv[0]);
     exit(BAD_NUMBER_ARGS);
   }
-  
+
   if (argc == 2 && strcmp(argv[1], "-g") == 0) {
     *isGrayscale = TRUE;
   } else {
     *isGrayscale = FALSE;
+  }
+
+  if (argc == 2 && strcmp(argv[1], "-s") == 0) {
+    *shrink = TRUE;
+  } else {
+    *shrink = FALSE;
   }
 
   return stdin;
@@ -39,7 +45,7 @@ FILE *parseCommandLine(int argc, char **argv, int *isGrayscale) {
 
 unsigned getFileSizeInBytes(FILE* stream) {
   unsigned fileSizeInBytes = 0;
-  
+
   rewind(stream);
   if (fseek(stream, 0L, SEEK_END) != 0) {
     exit(FSEEK_ERROR);
@@ -61,28 +67,56 @@ void getBmpFileAsBytes(unsigned char* ptr, unsigned fileSizeInBytes, FILE* strea
 }
 
 unsigned char getAverageIntensity(unsigned char blue, unsigned char green, unsigned char red) {
-  printf("TODO: unsigned char getAverageIntensity(unsigned char blue, unsigned char green, unsigned char red)\n");
-  return 0;
+  int average = ((int)blue + (int)green + (int)red)/3;
+  return average;
 }
 
 void applyGrayscaleToPixel(unsigned char* pixel) {
-  printf("TODO: void applyGrayscaleToPixel(unsigned char* pixel)\n");
+  int average = getAverageIntensity(pixel[0], pixel[1], pixel[2]);
+  for(int i = 0; i < 3; i++){
+    pixel[i] = average;
+  }
 }
 
 void applyThresholdToPixel(unsigned char* pixel) {
-  printf("TODO: void applyThresholdToPixel(unsigned char* pixel)\n");
+  int average = getAverageIntensity(pixel[0], pixel[1], pixel[2]);
+  if (average < 128){
+    for(int i = 0; i < 3; i++){
+      pixel[i] = 0;
+    }
+  }
+  else{
+    for(int i = 0; i < 3; i++){
+      pixel[i] = 255;
+    }
+  }
 }
 
 void applyFilterToPixel(unsigned char* pixel, int isGrayscale) {
-  printf("TODO: void applyFilterToPixel(unsigned char* pixel, int isGrayscale)\n");
+  if (isGrayscale){
+    applyGrayscaleToPixel(pixel);
+  }
+  else {
+    applyThresholdToPixel(pixel);
+  }
 }
 
 void applyFilterToRow(unsigned char* row, int width, int isGrayscale) {
-  printf("TODO: void applyFilterToRow(unsigned char* row, int width, int isGrayscale)\n");
+  for (int i = 0; i < width; i++){
+    applyFilterToPixel(&row[i*3], isGrayscale);
+  }
 }
 
 void applyFilterToPixelArray(unsigned char* pixelArray, int width, int height, int isGrayscale) {
-  printf("TODO: void applyFilterToPixelArray(unsigned char* pixelArray, int width, int height, int isGrayscale)\n");
+  int widthBytes = width * 3;
+  int padding = 0;
+  if (widthBytes % 4){
+    padding = 4 - (widthBytes % 4);
+  }
+  for (int i = 0; i < height; i++){
+    applyFilterToRow(pixelArray, width, isGrayscale);
+    pixelArray += widthBytes + padding;
+  }
 }
 
 void parseHeaderAndApplyFilter(unsigned char* bmpFileAsBytes, int isGrayscale) {
@@ -91,10 +125,10 @@ void parseHeaderAndApplyFilter(unsigned char* bmpFileAsBytes, int isGrayscale) {
   int height = 0;
   unsigned char* pixelArray = NULL;
 
-  printf("TODO: set offsetFirstBytePixelArray\n");
-  printf("TODO: set width\n");
-  printf("TODO: set height\n");
-  printf("TODO: set the pixelArray to the start of the pixel array\n");
+  offsetFirstBytePixelArray = *(int*)(bmpFileAsBytes+10);
+  width = *(int*)(bmpFileAsBytes+18);
+  height = *(int*)(bmpFileAsBytes+22);
+  pixelArray = &bmpFileAsBytes[offsetFirstBytePixelArray];
 
 #ifdef DEBUG
   printf("offsetFirstBytePixelArray = %u\n", offsetFirstBytePixelArray);
@@ -104,15 +138,32 @@ void parseHeaderAndApplyFilter(unsigned char* bmpFileAsBytes, int isGrayscale) {
 #endif
 
   applyFilterToPixelArray(pixelArray, width, height, isGrayscale);
-}
 
+}
+/*
+void parseHeaderAndApplyFilterToShrink(unsigned char* bmpFileAsBytes){
+  int offsetFirstBytePixelArray = 0;
+  int width = 0;
+  int height = 0;
+  unsigned char* pixelArray = NULL;
+
+  offsetFirstBytePixelArray = *(int*)(bmpFileAsBytes+10);
+  width = *(int*)(bmpFileAsBytes+18);
+  height = *(int*)(bmpFileAsBytes+22);
+  pixelArray = &bmpFileAsBytes[offsetFirstBytePixelArray];
+
+
+
+}
+*/
 int main(int argc, char **argv) {
   int grayscale = FALSE;
+  int shrink = FALSE;
   unsigned fileSizeInBytes = 0;
   unsigned char* bmpFileAsBytes = NULL;
   FILE *stream = NULL;
-  
-  stream = parseCommandLine(argc, argv, &grayscale);
+
+  stream = parseCommandLine(argc, argv, &grayscale, &shrink);
   fileSizeInBytes = getFileSizeInBytes(stream);
 
 #ifdef DEBUG
@@ -124,8 +175,13 @@ int main(int argc, char **argv) {
     exit(MALLOC_ERROR);
   }
   getBmpFileAsBytes(bmpFileAsBytes, fileSizeInBytes, stream);
+  if (shrink){
+    //parseHeaderAndApplyFilterToShrink(bmpFileAsBytes);
+    //fileSizeInBytes = fileSizeInBytes / 2;
 
-  parseHeaderAndApplyFilter(bmpFileAsBytes, grayscale);
+  } else{
+    parseHeaderAndApplyFilter(bmpFileAsBytes, grayscale);
+  }
 
 #ifndef DEBUG
   if (fwrite(bmpFileAsBytes, fileSizeInBytes, 1, stdout) != 1) {
