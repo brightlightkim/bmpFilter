@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
   }
   getBmpFileAsBytes(bmpFileAsBytes, fileSizeInBytes, stream);
   if (shrink){
-    //parseHeaderAndApplyFilterToShrink(bmpFileAsBytes);
+    parseHeaderAndApplyFilterToShrink(bmpFileAsBytes);
     //fileSizeInBytes = fileSizeInBytes / 2;
 
   } else{
